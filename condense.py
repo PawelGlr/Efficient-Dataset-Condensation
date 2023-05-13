@@ -331,7 +331,7 @@ def load_resized_data(args):
                                   seed=args.dseed,
                                   load_memory=False)
     elif args.dataset == 'PCAM':
-        train_dataset = datasets.PCAM(args.data_dir,
+        train_dataset = datasets.PCAM(args.data_dir, download= True,
                                               split='test',
                                               transform=transforms.ToTensor())
         train_dataset.targets = []
@@ -341,7 +341,7 @@ def load_resized_data(args):
         normalize = transforms.Normalize(mean=MEANS['PCAM'], std=STDS['PCAM'])
         transform_test = transforms.Compose([transforms.ToTensor(), normalize])
 
-        val_dataset = datasets.PCAM(args.data_dir, split = 'val', transform=transform_test)
+        val_dataset = datasets.PCAM(args.data_dir, split = 'val', transform=transform_test, download=True)
 
         val_dataset.targets = []
         for datapoint in val_dataset:
