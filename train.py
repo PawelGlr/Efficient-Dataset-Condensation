@@ -216,7 +216,7 @@ def train_epoch(args,
             loss = criterion(output, target)
 
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
+        acc1, acc5 = accuracy(output.data, target, topk=(1, 2))
 
         losses.update(loss.item(), input.size(0))
         top1.update(acc1.item(), input.size(0))
@@ -277,7 +277,7 @@ def validate(args, val_loader, model, criterion, epoch, logger=None):
         loss = criterion(output, target)
 
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output.data, target, topk=(1, 5))
+        acc1, acc5 = accuracy(output.data, target, topk=(1, 1))
 
         losses.update(loss.item(), input.size(0))
 
@@ -342,6 +342,12 @@ def save_checkpoint(save_dir, state, is_best):
 if __name__ == '__main__':
     from misc.utils import Logger
     from argument import args
+
+    # import torch.multiprocessing as mp
+    # try:
+    #     mp.set_start_method('spawn')
+    # except:
+    #     pass
 
     os.makedirs(args.save_dir, exist_ok=True)
     logger = Logger(args.save_dir)

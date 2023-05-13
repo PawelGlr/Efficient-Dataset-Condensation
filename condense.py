@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torchvision import datasets, transforms
-from data import transform_imagenet, transform_cifar, transform_svhn, transform_mnist, transform_fashion
+from data import transform_imagenet, transform_cifar, transform_svhn, transform_mnist, transform_fashion, transform_pcam
 from data import TensorDataset, ImageFolder, save_img
 from data import ClassDataLoader, ClassMemDataLoader, MultiEpochsDataLoader
 from data import MEANS, STDS
@@ -205,6 +205,8 @@ class Synthesizer():
             train_transform, _ = transform_mnist(augment=augment, from_tensor=True)
         elif args.dataset == 'fashion':
             train_transform, _ = transform_fashion(augment=augment, from_tensor=True)
+        elif args.dataset == 'PCAM':
+            train_transform, _ = transform_pcam(augment=augment, from_tensor=True)
 
         data_dec = []
         target_dec = []
@@ -277,12 +279,12 @@ def load_resized_data(args):
         train_dataset.nclass = 10
 
     elif args.dataset == 'mnist':
-        train_dataset = datasets.MNIST(args.data_dir, train=True, transform=transforms.ToTensor())
+        train_dataset = datasets.MNIST(args.data_dir, train=True, transform=transforms.ToTensor(), download = True)
 
         normalize = transforms.Normalize(mean=MEANS['mnist'], std=STDS['mnist'])
         transform_test = transforms.Compose([transforms.ToTensor(), normalize])
 
-        val_dataset = datasets.MNIST(args.data_dir, train=False, transform=transform_test)
+        val_dataset = datasets.MNIST(args.data_dir, train=False, transform=transform_test, download=True)
         train_dataset.nclass = 10
 
     elif args.dataset == 'fashion':
@@ -328,6 +330,26 @@ def load_resized_data(args):
                                   phase=args.phase,
                                   seed=args.dseed,
                                   load_memory=False)
+    elif args.dataset == 'PCAM':
+        train_dataset = datasets.PCAM(args.data_dir,
+                                              split='test',
+                                              transform=transforms.ToTensor())
+        train_dataset.targets = []
+        for datapoint in train_dataset:
+            train_dataset.targets.append(datapoint[1])
+        train_dataset.targets = torch.tensor(train_dataset.targets)
+        normalize = transforms.Normalize(mean=MEANS['PCAM'], std=STDS['PCAM'])
+        transform_test = transforms.Compose([transforms.ToTensor(), normalize])
+
+        val_dataset = datasets.PCAM(args.data_dir, split = 'val', transform=transform_test)
+
+        val_dataset.targets = []
+        for datapoint in val_dataset:
+            val_dataset.targets.append(datapoint[1])
+        val_dataset.targets = torch.tensor(val_dataset.targets)
+
+        train_dataset.nclass = 2
+
 
     val_loader = MultiEpochsDataLoader(val_dataset,
                                        batch_size=args.batch_size // 2,

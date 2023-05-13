@@ -25,6 +25,9 @@ STDS['mnist'] = [0.3081]
 MEANS['fashion'] = [0.2861]
 STDS['fashion'] = [0.3530]
 
+MEANS['PCAM'] = [178.968169 / 255, 137.275527 / 255, 177.857826 / 255]
+STDS['PCAM'] = [60.045130 / 255, 71.572914 / 255, 54.662510 / 255]
+
 
 class TensorDataset(torch.utils.data.Dataset):
     def __init__(self, images, labels, transform=None):
@@ -323,11 +326,36 @@ def transform_imagenet(size=-1,
     return train_transform, test_transform
 
 
+def transform_pcam(augment=False, from_tensor=False, normalize=True):
+    if not augment:
+        aug = []
+    else:
+        # aug = [transforms.RandomCrop(32, padding=4)]
+        aug = [] # zmienione
+        print("Dataset with basic PCAM augmentation")
+
+    if from_tensor:
+        cast = []
+    else:
+        cast = [transforms.ToTensor()]
+
+    if normalize:
+        normal_fn = [transforms.Normalize(mean=MEANS['PCAM'], std=STDS['PCAM'])]
+    else:
+        normal_fn = []
+
+    train_transform = transforms.Compose(cast + aug + normal_fn)
+    test_transform = transforms.Compose(cast + normal_fn)
+
+    return train_transform, test_transform
+
+
 class _RepeatSampler(object):
     """ Sampler that repeats forever.
     Args:
         sampler (Sampler)
     """
+
     def __init__(self, sampler):
         self.sampler = sampler
 
@@ -342,6 +370,7 @@ class _RepeatSampler(object):
 class ClassBatchSampler(object):
     """Intra-class batch sampler 
     """
+
     def __init__(self, cls_idx, batch_size, drop_last=True):
         self.samplers = []
         for indices in cls_idx:
@@ -364,6 +393,7 @@ class ClassBatchSampler(object):
 class MultiEpochsDataLoader(torch.utils.data.DataLoader):
     """Multi epochs data loader
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._DataLoader__initialized = False
@@ -379,6 +409,7 @@ class MultiEpochsDataLoader(torch.utils.data.DataLoader):
             self.device = 'cpu'
         else:
             self.device = 'cuda'
+        # self.device = "cuda"
 
     def __len__(self):
         return len(self.batch_sampler)
@@ -394,6 +425,7 @@ class MultiEpochsDataLoader(torch.utils.data.DataLoader):
 class ClassDataLoader(MultiEpochsDataLoader):
     """Basic class loader (might be slow for processing data)
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -429,6 +461,7 @@ class ClassDataLoader(MultiEpochsDataLoader):
 class ClassMemDataLoader():
     """Class loader with data on GPUs
     """
+
     def __init__(self, dataset, batch_size, drop_last=False, device='cuda'):
         self.device = device
         self.batch_size = batch_size
@@ -493,6 +526,7 @@ class ClassPartMemDataLoader(MultiEpochsDataLoader):
        This loader loads target subclass samples on GPUs
        while can loading full training data from storage. 
     """
+
     def __init__(self, subclass_list, real_to_idx, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -624,20 +658,27 @@ def load_data(args):
             print(f"  => subsample ({args.slct_type} ipc {args.ipc})")
         print(" #valid: ", len(val_dataset.targets))
 
+    elif args.dataset == 'PCAM':
+        train_transform, test_transform = transform_pcam(augment=args.augment)
+
+        train_dataset = datasets.PCAM(args.data_dir, split="test", transform=transforms.ToTensor(), download=True)
+        val_dataset = datasets.PCAM(args.data_dir, split="val", transform=transforms.ToTensor(), download=True)
+        nclass = 2
+        # TODO Here
     else:
         raise Exception('unknown dataset: {}'.format(args.dataset))
 
     train_loader = MultiEpochsDataLoader(train_dataset,
                                          batch_size=args.batch_size,
                                          shuffle=True,
-                                         num_workers=args.workers,
-                                         persistent_workers=args.workers > 0,
+                                         num_workers=1,
+                                         persistent_workers=False,
                                          pin_memory=True)
     val_loader = MultiEpochsDataLoader(val_dataset,
                                        batch_size=args.batch_size // 2,
                                        shuffle=False,
-                                       persistent_workers=True,
-                                       num_workers=4,
+                                       persistent_workers=False,
+                                       num_workers=1,
                                        pin_memory=True)
 
     return train_dataset, train_loader, val_loader, nclass
